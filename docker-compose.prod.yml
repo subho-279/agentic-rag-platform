@@ -1,0 +1,84 @@
+# Production overlay. Use together with the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Differences from the dev stack:
+#   * every secret is REQUIRED (compose refuses to start with a clear message if one is missing)
+#   * the demo /dev/token endpoint is off, and Caddy also 404s /dev/* as a second layer
+#   * the gateway is not published directly; Caddy terminates TLS on 80/443 and proxies to it
+#   * Redis requires a password; Postgres' app role uses its own password
+#   * memory limits so one container cannot take the whole host
+#
+# See DEPLOY.md for the full runbook.
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      RAG_APP_PASSWORD: ${RAG_APP_PASSWORD:?set RAG_APP_PASSWORD in .env.prod}
+    deploy:
+      resources:
+        limits: {memory: 1g}
+
+  redis:
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+    deploy:
+      resources:
+        limits: {memory: 256m}
+
+  kafka:
+    deploy:
+      resources:
+        limits: {memory: 1g}
+
+  gateway:
+    ports: !reset []
+    environment:
+      DEV_TOKENS_ENABLED: "false"
+      DB_PASSWORD: ${RAG_APP_PASSWORD:?set RAG_APP_PASSWORD in .env.prod}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?set INTERNAL_TOKEN in .env.prod}
+      # Blank (not the dev default) when unset: the gateway then refuses to start unless OIDC_ISSUER_URI is set.
+      JWT_SECRET: ${JWT_SECRET:-}
+    deploy:
+      resources:
+        limits: {memory: 768m}
+
+  agent:
+    environment:
+      DATABASE_URL: postgresql://rag_app:${RAG_APP_PASSWORD:?set RAG_APP_PASSWORD in .env.prod}@postgres:5432/ragdb
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?set INTERNAL_TOKEN in .env.prod}
+    deploy:
+      resources:
+        limits: {memory: 1g}
+
+  worker:
+    environment:
+      DATABASE_URL: postgresql://rag_app:${RAG_APP_PASSWORD:?set RAG_APP_PASSWORD in .env.prod}@postgres:5432/ragdb
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?set INTERNAL_TOKEN in .env.prod}
+    deploy:
+      resources:
+        limits: {memory: 1g}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN (e.g. rag.example.com) in .env.prod}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      gateway: {condition: service_healthy}
+
+volumes:
+  caddy_data:
+  caddy_config:

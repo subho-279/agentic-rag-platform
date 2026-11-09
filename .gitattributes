@@ -1,0 +1,10 @@
+# Keep line endings stable across Windows/macOS/Linux. Shell scripts MUST be LF or the postgres container fails.
+* text=auto
+*.sh text eol=lf
+*.lua text eol=lf
+Dockerfile text eol=lf
+*.py text eol=lf
+*.java text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf

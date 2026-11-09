@@ -1,0 +1,14 @@
+{$DOMAIN} {
+	# The demo token endpoint must never be reachable from the internet, even if mis-enabled upstream.
+	@devtokens path /dev/*
+	respond @devtokens 404
+
+	request_body {
+		max_size 26MB
+	}
+
+	# flush_interval -1 streams responses immediately (needed for the SSE endpoint).
+	reverse_proxy gateway:8080 {
+		flush_interval -1
+	}
+}

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ragplatform"
+version = "0.1.0"
+description = "Python worker and agentic core for the multi-tenant RAG platform"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "langgraph>=0.2",
+  "psycopg[binary,pool]>=3.2",
+  "confluent-kafka>=2.5",
+  "pymupdf>=1.24.3",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-timeout>=2.3", "redis>=5", "pyjwt>=2.8", "python-multipart>=0.0.9"]
+
+[tool.setuptools.packages.find]
+include = ["ragplatform*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 60

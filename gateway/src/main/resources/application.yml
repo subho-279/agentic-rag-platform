@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: rag-gateway
+  threads:
+    virtual:
+      enabled: true            # Tomcat and @Async run on virtual threads (Project Loom)
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ragdb}
+    username: ${DB_USER:rag_app}
+    password: ${DB_PASSWORD:rag_app_pw}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        max.block.ms: 5000
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
+  mvc:
+    async:
+      request-timeout: 120s
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  jwt-secret: ${JWT_SECRET:dev-only-jwt-secret-at-least-32-bytes-long!!}
+  oidc-issuer-uri: ${OIDC_ISSUER_URI:}      # when set, JWTs are validated against this OIDC provider instead of jwt-secret
+  dev-tokens-enabled: ${DEV_TOKENS_ENABLED:false}
+  internal-token: ${INTERNAL_TOKEN:dev-internal-token-change-me}
+  agent-url: ${AGENT_URL:http://localhost:8000}
+  storage-root: ${STORAGE_ROOT:/data/uploads}
+  ingest-topic: ${INGEST_TOPIC:documents.ingest}
+  rate-limit:
+    capacity: ${RATE_LIMIT_CAPACITY:20}
+    refill-per-second: ${RATE_LIMIT_REFILL_PER_SEC:5}
+    query-cost: 5
+    upload-cost: 5
+    fail-open: true            # if Redis is down, serve traffic rather than take every tenant offline
+    tenants: {}                # per-tenant overrides, e.g. tenants.acme.capacity: 100
